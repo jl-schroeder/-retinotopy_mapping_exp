@@ -1,5 +1,6 @@
 from psychopy import visual, event, core, gui
 from psychopy.visual import textbox
+import psychopy
 import time
 import numpy as np
 import os
@@ -8,8 +9,6 @@ import random
 import datetime
 import csv
 import socket
-
-
 
 
 ## >>> define functions
@@ -46,7 +45,7 @@ def wait_for_scanner(trigger, offset = 0):
 ## >>> define variables
 use_mock_scanner = False
 fullscr_bool = True
-use_frames_for_timing = True
+use_frames_for_timing = False#True
 window_size = [1920, 1200]
 trigger = '5'
 TR = 2.5
@@ -58,7 +57,8 @@ fixation_with = 10
 fixation_colour = 'red'
 background_color = 'gray'
 stim_size_param = 2
-stim_size_pix = window_size[1]# - 50
+#stim_size_pix = window_size[1]# - 50
+#print(1,stim_size_pix)
 
 shuffle_imgs = False
 ## <<< define variables
@@ -70,17 +70,27 @@ myDlg.addText('Subject info')
 myDlg.addField('Subject Nr:', required=True)
 myDlg.addField('Run:', required=True)
 myDlg.addText('Experiment Settings')
-myDlg.addField('Blocks:',1, required=True)
-myDlg.addField('Type:', choices=["fixed-bar", "log-bar", "eccentricity-ring", "log-eccentricity-ring"])
+myDlg.addField('Blocks:', 4, required=True)
+myDlg.addField('Type:', "eccentricity-ring", choices=["fixed-bar", "log-bar", "eccentricity-ring", "log-eccentricity-ring"])
 run_data = myDlg.show()  # show dialog and wait for OK or Cancel
 if not myDlg.OK:  # or if ok_data is not None
     print('User cancelled session')
     # Quit PsychoPy
     core.quit()
 
-sub_nr = run_data['Subject Nr:']
-run_nr = run_data['Run:']
-nr_blocks = np.int64(run_data['Blocks:'])
+
+if '2023' in str(psychopy.__version__):
+    print('Using 2023 compatibility')
+    sub_nr = run_data[0]#run_data['Subject Nr:']
+    run_nr = run_data[1]#run_data['Run:']
+    nr_blocks = run_data[2]#np.int64(run_data['Blocks:'])
+    condition_name = run_data[3] #run_data['Type:']
+else:
+    print('Using current state')
+    sub_nr = run_data['Subject Nr:']
+    run_nr = run_data['Run:']
+    nr_blocks = np.int64(run_data['Blocks:'])
+    condition_name = run_data['Type:']
 #####################
 
 
@@ -98,13 +108,13 @@ if use_mock_scanner:
 
 
 
-if run_data['Type:'] == "fixed-bar":
+if condition_name == "fixed-bar":
     image_list = list_files_recursive('./stimuli/fixed-bar/')
     image_list_flip = list_files_recursive('./stimuli/fixed-bar-flipped/')
-elif run_data['Type:'] == "eccentricity-ring":
+elif condition_name == "eccentricity-ring":
     image_list = list_files_recursive('./stimuli/eccec_rings/')
     image_list_flip = list_files_recursive('./stimuli/eccec_rings_flipped/')
-elif run_data['Type:'] == "log-eccentricity-ring":
+elif condition_name == "log-eccentricity-ring":
     image_list = list_files_recursive('./stimuli/log_eccec_rings/')
     image_list_flip = list_files_recursive('./stimuli/log_eccec_rings_flipped/')
 else:
@@ -112,7 +122,7 @@ else:
     image_list_flip = list_files_recursive('./stimuli/log-bar-flipped/')
 
 # sort image list
-if ((run_data['Type:'] == "eccentricity-ring") or (run_data['Type:'] == "log-eccentricity-ring")):
+if ((condition_name == "eccentricity-ring") or (condition_name == "log-eccentricity-ring")):
     image_list = sorted(image_list)
     image_list_flip = sorted(image_list_flip)
 else:    
@@ -121,7 +131,10 @@ else:
 
 # create window
 win = visual.Window(window_size, color=background_color, units='pix', fullscr = fullscr_bool, screen=0)
-stim_size_pix = (win.size[1]/2) * 0.999 # CHECK FOR SCANNER!
+#stim_size_pix = (win.size[1]/2) * 0.999 # CHECK FOR SCANNER!
+stim_size_pix = np.int64(win.size[1]/2) #* 0.999
+print(1,stim_size_pix)
+#print(3,psychoJS.window.size[1])
 
 refresh_rate = win.getActualFrameRate()
 if refresh_rate is None:
@@ -161,7 +174,7 @@ while curr_trig < 4:
     curr_trig += 1
 
 
-if not((run_data['Type:'] == "eccentricity-ring") or (run_data['Type:'] == "log-eccentricity-ring")):
+if not((condition_name == "eccentricity-ring") or (condition_name == "log-eccentricity-ring")):
     block_size = 45
 
     image_list_blocks = [image_list[i:i+block_size] for i in range(0, len(image_list), block_size)]
@@ -178,14 +191,14 @@ for blk in range(0,nr_blocks):
     new_row = np.array([clock.getTime() - offset, str(blk+1), '', "Block onset", ''], dtype='object')
     log_arr = np.vstack([log_arr, new_row])
     
-    if shuffle_imgs and not((run_data['Type:'] == "eccentricity-ring") or (run_data['Type:'] == "log-eccentricity-ring")):
+    if shuffle_imgs and not((condition_name == "eccentricity-ring") or (condition_name == "log-eccentricity-ring")):
         # shuffle blocks
         random.shuffle(image_paired_blocks)
         
         # set new lists
         image_list = [item for block, _ in image_paired_blocks for item in block]
         image_list_flip = [item for _, block in image_paired_blocks for item in block]
-    elif shuffle_imgs and ((run_data['Type:'] == "eccentricity-ring") or (run_data['Type:'] == "log-eccentricity-ring")):
+    elif shuffle_imgs and ((condition_name == "eccentricity-ring") or (condition_name == "log-eccentricity-ring")):
         if nr_blocks%2 == 0:
             reverse_choice = np.int64(block_select[blk])
         else:
@@ -211,7 +224,7 @@ for blk in range(0,nr_blocks):
         
         if use_frames_for_timing: # use frames for timing
             # logging
-            img_name = image_list[img_idx][6+len(run_data['Type:']):] # take only relative image name
+            img_name = image_list[img_idx][6+len(condition_name):] # take only relative image name
             new_row = np.array([clock.getTime() - offset, str(blk+1), str(img_idx+1), "Stimulus", img_name], dtype='object')
             log_arr = np.vstack([log_arr, new_row])
             for frame_n in range(int(refresh_rate*nr_TRs_per_stim*TR)):
@@ -230,7 +243,7 @@ for blk in range(0,nr_blocks):
             time_per_stim = 1
             start_time = clock.getTime()
             # logging
-            img_name = image_list[img_idx][6+len(run_data['Type:']):] # take only relative image name
+            img_name = image_list[img_idx][6+len(condition_name):] # take only relative image name
             new_row = np.array([clock.getTime() - offset, str(blk+1), str(img_idx+1), "Stimulus", img_name], dtype='object')
             log_arr = np.vstack([log_arr, new_row])
             while clock.getTime() < start_time+(time_per_stim*TR*nr_TRs_per_stim):
@@ -273,7 +286,7 @@ for blk in range(0,nr_blocks):
     log_arr = np.vstack([log_arr, new_row])
 
 # wait some time at end
-core.wait(8)
+core.wait(12.5)
 
 new_row = np.array([clock.getTime() - offset, str(blk+1), '', "EXP end", ''], dtype='object')
 log_arr = np.vstack([log_arr, new_row])
@@ -292,7 +305,7 @@ if not os.path.exists(folder_path):
     except OSError as e:
         print(f"Error creating folder '{folder_path}': {e}")
 
-file_name = f"./data/logdata_LGN_prf_sub_{sub_nr}_run_{run_nr}_{run_data['Type:']}_{nowTimeForFileName}.csv"
+file_name = f"./data/logdata_LGN_prf_sub_{sub_nr}_run_{run_nr}_{condition_name}_{nowTimeForFileName}.csv"
 with open(file_name, 'w', newline='') as file:
     writer = csv.writer(file)
     writer.writerow(["Time",  "Block Nr", "Trial Nr", "Event", "Additional info"])
